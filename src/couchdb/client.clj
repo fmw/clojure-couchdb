@@ -84,8 +84,9 @@
 (defn- normalize-url
   "If not present, appends a / to the url-string."
   [url]
-  (if-not (== (last url) \/)
-    (str url \/ )))
+  (if-not (= (last url) \/)
+    (str url \/ )
+    url))
 
 
 (defn- vals-lift [f m]
