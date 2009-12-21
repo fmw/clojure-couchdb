@@ -9,7 +9,7 @@ Depends on clojure-contrib and [clojure-http-client](http://github.com/technoman
 ##Database Functions:
 
 ###database-list
-    user=> (database-list "http://localhost:5984/")
+    user=> (database-list "http://localhost:5984")
     ["foo" "bar" "some-db" "another-database"]
 ###database-info
     user=> (database-info "http://localhost:5984/" "foo")
