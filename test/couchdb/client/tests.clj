@@ -128,18 +128,21 @@
                                     "foobar" "my-attachment #1") true))
   ;; re-check the list again
   (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
+  
   ;; create with InputStream
-  (let [istream (FileInputStream. *file*)]
-    (is (= (couchdb/attachment-create +test-server+ +test-db+
-                                      "foobar" "my-attachment #2"
-                                      istream "text/clojure")
-           "my-attachment #2")))
-  ;; get back the attachment we just created
-  (let [istream (FileInputStream. *file*)]
-    (is (= (couchdb/attachment-get +test-server+ +test-db+
-                                   "foobar" "my-attachment #2")
-           {:body-seq (line-seq (reader istream))
-            :content-type "text/clojure"}))))
+  
+  (when (not= *file* "NO_SOURCE_FILE")
+    (let [istream (FileInputStream. *file*)]
+      (is (= (couchdb/attachment-create +test-server+ +test-db+
+                                        "foobar" "my-attachment #2"
+                                        istream "text/clojure")
+             "my-attachment #2")))
+    ;; get back the attachment we just created
+   (let [istream (FileInputStream. *file*)]
+     (is (= (couchdb/attachment-get +test-server+ +test-db+
+                                    "foobar" "my-attachment #2")
+            {:body-seq (line-seq (reader istream))
+             :content-type "text/clojure"})))))
 
 
 (deftest documents-passing-map
