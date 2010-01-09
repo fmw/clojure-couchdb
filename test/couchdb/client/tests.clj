@@ -100,6 +100,7 @@
                    (couchdb/document-get +test-server+ +test-db+ "tbd"))))))
 
 
+
 (deftest attachments
   ;; list
   (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
@@ -114,10 +115,14 @@
          {:body-seq '("ATTACHMENT DATA")
           :content-type "text/plain"}))
   ;; re-check the list
-  (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar")
-         {"my-attachment #1"  {:length 15
-                               :content_type "text/plain"
-                               :stub true}}))
+  (let [atts (couchdb/attachment-list +test-server+ +test-db+ "foobar")
+        att1 (get atts "my-attachment #1")]
+    (is (= (count atts) 1))
+    (is (not (nil? att1)))
+    (is (= (select-keys att1 [:length :content_type :stub])
+           {:length 15
+            :content_type "text/plain"
+            :stub true})))
   ;; delete
   (is (= (couchdb/attachment-delete +test-server+ +test-db+
                                     "foobar" "my-attachment #1") true))
