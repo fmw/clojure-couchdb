@@ -49,8 +49,8 @@
     (if (>= (:code result) 400)
       (kit/raise* ((condp = (:code result)
                      404 (condp = (:reason (:json result))
-                            ;; as of svn rev 775577 this should be "no_db_file"
-                           "Missing" DatabaseNotFound
+                            ;; before svn rev 775577 this should be "no_db_file"
+                           "no_db_file" DatabaseNotFound  
                            "Document is missing attachment" AttachmentNotFound
                            DocumentNotFound)
                      409 ResourceConflict
