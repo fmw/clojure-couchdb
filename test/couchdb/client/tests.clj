@@ -3,7 +3,8 @@
   (:require (couchdb [client :as couchdb])
             (clojure.contrib [error-kit :as kit]))
   (:use (clojure test)
-        [clojure.contrib.duck-streams :only [reader]]))
+        [clojure.contrib.duck-streams :only [reader]]
+        [clojure.contrib.java-utils :only [file]]))
 
 
 (def +test-server+ "http://localhost:5984/")
@@ -130,19 +131,20 @@
   (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
   
   ;; create with InputStream
-  
-  (when (not= *file* "NO_SOURCE_FILE")
-    (let [istream (FileInputStream. *file*)]
-      (is (= (couchdb/attachment-create +test-server+ +test-db+
-                                        "foobar" "my-attachment #2"
-                                        istream "text/clojure")
-             "my-attachment #2")))
-    ;; get back the attachment we just created
-   (let [istream (FileInputStream. *file*)]
-     (is (= (couchdb/attachment-get +test-server+ +test-db+
-                                    "foobar" "my-attachment #2")
-            {:body-seq (line-seq (reader istream))
-             :content-type "text/clojure"})))))
+  (if-not (.exists (file *file*))
+    (println "File " *file* "not found. Skipping InputStream-Test")
+    (do
+      (let [istream (FileInputStream. *file*)]
+        (is (= (couchdb/attachment-create +test-server+ +test-db+
+                                          "foobar" "my-attachment #2"
+                                          istream "text/clojure")
+               "my-attachment #2")))
+      ;; get back the attachment we just created
+      (let [istream (FileInputStream. *file*)]
+        (is (= (couchdb/attachment-get +test-server+ +test-db+
+                                       "foobar" "my-attachment #2")
+               {:body-seq (line-seq (reader istream))
+                :content-type "text/clojure"}))))))
 
 
 (deftest documents-passing-map
