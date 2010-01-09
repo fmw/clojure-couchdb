@@ -298,9 +298,8 @@
   ;; try to delete an attachment that doesn't exist
   (is (= true (couchdb/attachment-delete +test-server+ +test-db+ "bam" "f"))))
 
-
-(defn test-ns-hook
-  []
+;;; test-ns-hook is used to run tests in the specified order
+(defn test-ns-hook []
   (databases)
   (documents)
   (attachments)
