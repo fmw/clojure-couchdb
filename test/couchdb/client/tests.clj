@@ -310,5 +310,3 @@
   (error-checking)
   (cleanup))
 
-
-(run-tests)
