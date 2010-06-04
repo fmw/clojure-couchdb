@@ -263,6 +263,17 @@ http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API"
           {}
           (json-str view-map))))
 
+(defn view-create
+  "Create a map/reduce view.  The new view is a clojure-map with keys of :map and
+  (optionally) :reduce.  Values are the string representations of the functions
+  in the language of the design-doc (usually javascript)."
+  [server db design-name view-name view-map]
+  (let [design-key (str "_design/" design-name)]
+    (when-let [design-doc (document-get server db design-key)]
+      (document-update server db design-key
+                       (assoc design-doc :views (assoc (:views design-doc) view-name view-map))))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;        Attachments          ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
