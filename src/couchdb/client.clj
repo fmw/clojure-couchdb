@@ -3,7 +3,7 @@
   (:use [clojure.contrib.java-utils :only [as-str]]
         [clojure.contrib.json.read :only [read-json *json-keyword-keys*]]
         [clojure.contrib.json.write :only [json-str]]
-        [clojure.http.client :only [request url-encode]]))
+        [clojure-http.client :only [request url-encode]]))
 
 (kit/deferror InvalidDatabaseName [] [database]
   {:msg (str "Invalid Database Name: " database)
