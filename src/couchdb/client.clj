@@ -271,7 +271,7 @@ http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API"
   (let [design-key (str "_design/" design-name)]
     (when-let [design-doc (document-get server db design-key)]
       (document-update server db design-key
-                       (assoc design-doc :views (assoc (:views design-doc) view-name view-map))))))
+                       (assoc design-doc :views (assoc (:views design-doc) (keyword view-name) view-map))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
