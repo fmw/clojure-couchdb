@@ -1,8 +1,7 @@
 (ns couchdb.client
   (:require [clojure.contrib [error-kit :as kit]])
   (:use [clojure.contrib.java-utils :only [as-str]]
-        [clojure.contrib.json.read :only [read-json *json-keyword-keys*]]
-        [clojure.contrib.json.write :only [json-str]]
+        [clojure.contrib.json :only [json-str read-json]]
         [clojure-http.client :only [request url-encode]]))
 
 (kit/deferror InvalidDatabaseName [] [database]
@@ -41,22 +40,21 @@
   [& args]
   (let [response (apply request args)
         result (try (assoc response :json
-                           (binding [*json-keyword-keys* true]
-                             (read-json (apply str (:body-seq response)))))
-                    ;; if there's an error reading the JSON, just don't make a :json key
-                    (catch Exception e 
-                      response))]
+                           (read-json (apply str (:body-seq response)) true))
+                 ;; if there's an error reading the JSON, just don't make a :json key
+                 (catch Exception e 
+                   response))]
     (if (>= (:code result) 400)
       (kit/raise* ((condp = (:code result)
                      404 (condp = (:reason (:json result))
-                            ;; before svn rev 775577 this should be "no_db_file"
+                           ;; before svn rev 775577 this should be "no_db_file"
                            "no_db_file" DatabaseNotFound  
                            "Document is missing attachment" AttachmentNotFound
                            DocumentNotFound)
                      409 ResourceConflict
                      412 PreconditionFailed
                      ServerError)
-                   {:e (:json result)}))
+                     {:e (:json result)}))
       result)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
