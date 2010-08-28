@@ -1,8 +1,7 @@
 (ns couchdb.client
   (:require [clojure.contrib [error-kit :as kit]])
   (:use [clojure.contrib.java-utils :only [as-str]]
-        [clojure.contrib.json.read :only [read-json *json-keyword-keys*]]
-        [clojure.contrib.json.write :only [json-str]]
+        [clojure.contrib.json :only [read-json json-str]]
         [clojure-http.client :only [request url-encode]]))
 
 (kit/deferror InvalidDatabaseName [] [database]
@@ -41,8 +40,7 @@
   [& args]
   (let [response (apply request args)
         result (try (assoc response :json
-                           (binding [*json-keyword-keys* true]
-                             (read-json (apply str (:body-seq response)))))
+                             (read-json (apply str (:body-seq response))))
                     ;; if there's an error reading the JSON, just don't make a :json key
                     (catch Exception e 
                       response))]

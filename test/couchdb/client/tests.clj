@@ -133,20 +133,18 @@
   (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
   
   ;; create with InputStream
-  (if-not (.exists (file *file*))
-    (println "File " *file* "not found. Skipping InputStream-Test")
-    (do
-      (let [istream (FileInputStream. *file*)]
+    (let [attachment "test/couchdb/client/tests.clj"]
+      (let [istream (FileInputStream. attachment)]
         (is (= (couchdb/attachment-create +test-server+ +test-db+
                                           "foobar" "my-attachment #2"
                                           istream "text/clojure")
                "my-attachment #2")))
       ;; get back the attachment we just created
-      (let [istream (FileInputStream. *file*)]
+      (let [istream (FileInputStream. attachment)]
         (is (= (couchdb/attachment-get +test-server+ +test-db+
                                        "foobar" "my-attachment #2")
                {:body-seq (line-seq (reader istream))
-                :content-type "text/clojure"}))))))
+                :content-type "text/clojure"})))))
 
 
 (deftest documents-passing-map
