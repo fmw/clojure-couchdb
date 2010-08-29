@@ -149,5 +149,6 @@ In no particular order:
 * [Wojciech Kaczmarek](http://github.com/kunley)
 * [Moritz Ulrich](http://github.com/the-kenny/)
 * [Ryan Senior](http://github.com/senior)
+* [Ronen](http://github.com/narkisr)
 
 If I forgot you here, please send me a message. I just can't track down all commiters of this project.
