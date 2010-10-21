@@ -448,7 +448,8 @@ http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API"
     (let [document (do-get-doc database document)
           response (couch-request {:url (str (normalize-url server) database "/"
 					     (url-encode (as-str document)) "/"
-					     (url-encode (as-str id)))})]
+					     (url-encode (as-str id)))
+				   :as :byte-array})]
 					     
       {:body (:body response)
        :content-type (get (:headers response) "content-type")})))
