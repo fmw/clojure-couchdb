@@ -1,4 +1,5 @@
 classes/
 lib/
-pom.xml
 *.jar
+pom.xml
+.DS_Store
