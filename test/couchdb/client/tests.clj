@@ -9,6 +9,8 @@
 
 (def +test-server+ "http://localhost:5984/")
 (def +test-db+ "clojure-couchdb-test-database")
+(def +test-db2+  "clojure-couchdb-test-database2")
+(def +test-db3+  "clojure-couchdb-test-database3")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;         Utilities           ;;
@@ -70,9 +72,9 @@
     (is (zero? (count docs)))
     ;; now create a document with a server-generated ID
     (let [doc (couchdb/document-create +test-server+ +test-db+ {:foo 1})]
-      (is (= (:foo (couchdb/document-get +test-server+
+      (is (= 1 (:foo (couchdb/document-get +test-server+
                                          +test-db+
-                                         (:_id doc))) 1)))
+                                         (:_id doc))))))
     ;; and recheck the list of documents
     (let [new-docs (couchdb/document-list +test-server+ +test-db+)]
       (is (= 1 (count new-docs))))
@@ -103,49 +105,100 @@
 
 
 (deftest attachments
-  ;; list
-  (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
-  ;; create
-  (is (= (couchdb/attachment-create +test-server+ +test-db+
-                                    "foobar" "my-attachment #1"
-                                    "ATTACHMENT DATA" "text/plain")
-         "my-attachment #1"))
-  ;; get
-  (is (= (couchdb/attachment-get +test-server+ +test-db+
-                                 "foobar" "my-attachment #1")
-         {:body-seq '("ATTACHMENT DATA")
-          :content-type "text/plain"}))
-  ;; re-check the list
-  (let [atts (couchdb/attachment-list +test-server+ +test-db+ "foobar")
-        att1 (get atts "my-attachment #1")]
-    (is (= (count atts) 1))
-    (is (not (nil? att1)))
-    (is (= (select-keys att1 [:length :content_type :stub])
-           {:length 15
-            :content_type "text/plain"
-            :stub true})))
-  ;; delete
-  (is (= (couchdb/attachment-delete +test-server+ +test-db+
-                                    "foobar" "my-attachment #1") true))
-  ;; re-check the list again
-  (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
-  
-  ;; create with InputStream
-  (if-not (.exists (file *file*))
-    (println "File " *file* "not found. Skipping InputStream-Test")
-    (do
-      (let [istream (FileInputStream. *file*)]
-        (is (= (couchdb/attachment-create +test-server+ +test-db+
-                                          "foobar" "my-attachment #2"
-                                          istream "text/clojure")
-               "my-attachment #2")))
-      ;; get back the attachment we just created
-      (let [istream (FileInputStream. *file*)]
-        (is (= (couchdb/attachment-get +test-server+ +test-db+
-                                       "foobar" "my-attachment #2")
-               {:body-seq (line-seq (reader istream))
-                :content-type "text/clojure"}))))))
+  (let [binary-attachment (byte-array [(byte 0x12)
+				       (byte 0x23)
+				       (byte 0x44)])]
+    ;; list
+    (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
+    ;; create textual 
+    (is (= (couchdb/attachment-create +test-server+ +test-db+
+				      "foobar" "my-attachment #1"
+				      "ATTACHMENT DATA" "text/plain")
+	   "my-attachment #1"))
+    ;; create binary
+    (is (= (couchdb/attachment-create +test-server+ +test-db+
+				      "foobar" "attachment-2"
+				      binary-attachment "application/binary"))
+	"attachment-2")
+				    
+    ;; get textual
+    (is (= (couchdb/attachment-get +test-server+ +test-db+
+				   "foobar" "my-attachment #1")
+	   {:body "ATTACHMENT DATA"
+	    :content-type "text/plain; charset=utf-8"}))
 
+    ;; get binary attachment and ensure it is what we uploaded
+    (is (let [attachment (:body (couchdb/attachment-get +test-server+ +test-db+
+							"foobar" "attachment-2"))
+	      max_index (dec (count attachment))]
+	  (loop [index 0]
+	    (if (> index max_index)
+	      true
+	      (let [attachment_byte (nth attachment index)
+		    data_byte (nth binary-attachment index)]
+		(if (not (= attachment_byte data_byte))
+		  'false
+		  (recur (inc index))))))))	  
+	  
+      
+    ;; re-check the list
+    (let [atts (couchdb/attachment-list +test-server+ +test-db+ "foobar")
+	  att1 (get atts "my-attachment #1")]
+      (is (= (count atts) 2))
+      (is (not (nil? att1)))
+      (is (= (select-keys att1 [:length :content_type :stub])
+	     {:length 15
+	      :content_type "text/plain; charset=UTF-8"
+	      :stub true})))
+    ;; delete textual
+    (is (= (couchdb/attachment-delete +test-server+ +test-db+
+				      "foobar" "my-attachment #1") true))
+    ;; delete binary
+    (is (= (couchdb/attachment-delete +test-server+ +test-db+
+				      "foobar" "attachment-2") true))
+    ;; re-check the list again
+    (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
+  
+    ;; create with InputStream
+    (if-not (.exists (file *file*))
+      (println "File " *file* "not found. Skipping InputStream-Test")
+      (do
+	(let [istream (FileInputStream. *file*)]
+	  (is (= (couchdb/attachment-create +test-server+ +test-db+
+					    "foobar" "my-attachment #2"
+					    istream "text/clojure")
+		 "my-attachment #2")))
+	;; get back the attachment we just created
+	(let [istream (FileInputStream. *file*)]
+	  (is (= (couchdb/attachment-get +test-server+ +test-db+
+					 "foobar" "my-attachment #2")
+		 {:body (line-seq (reader istream))
+		  :content-type "text/clojure"})))))))
+
+(deftest views
+  (let [design-doc "viewdocs"]
+    (let [view-name "testview-all"
+	  js "function(doc) { emit(null, doc) }"]
+      ;; add view    
+      (is (not (nil? (couchdb/view-add +test-server+ +test-db+ design-doc view-name :map js))))
+      ;; list - one view
+      (is (-> (couchdb/view-list +test-server+ +test-db+ design-doc)
+	      count
+	      (= 1)))
+      ;; execute view
+      (is (-> (couchdb/view-get +test-server+ +test-db+ design-doc view-name)
+	      :rows
+	      count
+	      (= 2))))
+    (let [view-name "testview-some"
+	  js "function(doc) { if (doc._id == 'foobar') emit(1, doc) }"]
+      (is (not (nil? (couchdb/view-add +test-server+ +test-db+ design-doc view-name :map js))))
+      (is (-> (couchdb/view-get +test-server+ +test-db+ design-doc view-name)
+	      :rows
+	      count
+	      (= 1))))))
+
+  
 
 (deftest documents-passing-map
   ;; test that all the document-related functions work the same whether they
@@ -210,10 +263,10 @@
     ;; creating
     (let [regdoc-return (couchdb/attachment-create +test-server+ +test-db+
                                                    "regdoc" "att1"
-                                                   "payload" "content/type")
+                                                   "payload" "text/plain")
           mapdoc-return (couchdb/attachment-create +test-server+ +test-db+
                                                    mapdoc "att1" "payload"
-                                                   "content/type")]
+                                                   "text/plain")]
       (is (= regdoc-return mapdoc-return)))
     ;; listing
     (let [regdoc-return (couchdb/attachment-list +test-server+ +test-db+
@@ -235,10 +288,10 @@
       ;; are both return values true?
       (is (= regdoc-return mapdoc-return true))
       ;; make sure fetching both attachments gives a DocumentNotFound error
-      (is (raised? couchdb/AttachmentNotFound
+      (is (raised? couchdb/DocumentNotFound
                    (couchdb/attachment-get +test-server+ +test-db+
                                            "regdoc" "att1")))
-      (is (raised? couchdb/AttachmentNotFound
+      (is (raised? couchdb/DocumentNotFound
                    (couchdb/attachment-get +test-server+ +test-db+
                                            mapdoc "att1"))))))
 
@@ -298,14 +351,124 @@
   ;; try to delete an attachment that doesn't exist
   (is (= true (couchdb/attachment-delete +test-server+ +test-db+ "bam" "f"))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Conflict/Replication Testing
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn test-db-fixture [db f]
+     (try
+       (couchdb/database-create +test-server+ db)
+       (f)
+       (finally
+	(couchdb/database-delete +test-server+ db))))
+
+(def test-db2-fixture (partial test-db-fixture +test-db2+))
+(def test-db3-fixture (partial test-db-fixture +test-db3+))
+(def test-db2-db3-fixture (compose-fixtures test-db2-fixture test-db3-fixture))
+
+(def document-list* (partial couchdb/document-list +test-server+))
+(def document-create* (partial couchdb/document-create +test-server+))
+(def document-get-conflicts* (partial couchdb/document-get-conflicts +test-server+))
+(def database-replicate* #(couchdb/database-replicate +test-server+ %1 +test-server+ %2))
+
+(deftest replication-test
+  (database-replicate* +test-db+  +test-db2+)
+  (is (= (document-list* +test-db+)
+	 (document-list* +test-db2+))))
+
+(deftest single-conflict-test
+  (let [doc1 (document-create* +test-db+ "conflict" {:foo 1})
+	doc2 (document-create* +test-db2+ "conflict" {:bar 1})] 
+
+    (database-replicate* +test-db+ +test-db2+)
+    (let [conflicts (document-get-conflicts* +test-db2+ "conflict")]
+      (is (= 1 (count conflicts)))
+      (is (= (:_rev doc2) (first conflicts))))))
+
+(deftest multiple-conflict-test
+  (let [doc1 (document-create* +test-db+ "conflict2" {:foo 1})
+	doc2 (document-create* +test-db2+ "conflict2" {:bar 1})
+	doc3 (couchdb/document-update +test-server+ +test-db3+ "conflict2" {:baz 1})]
+
+    (database-replicate* +test-db+ +test-db3+)
+    (database-replicate* +test-db2+ +test-db3+)
+
+    (let [conflicts
+	  (document-get-conflicts* +test-db3+ "conflict2")]
+      (is (= 2 (count conflicts)))
+      (is (= (:_rev doc3) (first conflicts)))
+      (is (= (:_rev doc2) (second conflicts))))))
+
+(deftest no-conflict-test
+  (document-create* +test-db+ "no-conflict4" {:foo 1})
+  (document-create* +test-db2+ "no-conflict5" {:fo 1})
+  (database-replicate* +test-db+ +test-db2+)
+  (let [conflicts1
+	  (document-get-conflicts* +test-db2+ "no-conflict4")
+	conflicts2
+	  (document-get-conflicts* +test-db2+ "no-conflict5")]
+      (is (zero? (count conflicts1)))
+      (is (zero? (count conflicts2)))))
+
+(deftest single-conflict-resolve-test
+  (let [doc1 (document-create* +test-db+ "conflict6" {:foo 1})
+	doc2 (document-create* +test-db2+ "conflict6" {:bar 1})] 
+
+    (database-replicate* +test-db+ +test-db2+)
+    (let [conflicts (document-get-conflicts* +test-db2+ "conflict6")]
+      (is (= 1 (count conflicts)))
+      (is (= (:_rev doc2) (first conflicts)))
+      (couchdb/document-resolve-conflict +test-server+ +test-db2+ "conflict6"
+					 (first conflicts) merge)
+      (let [conflicts (document-get-conflicts* +test-db2+ "conflict6")
+	    merged-doc (couchdb/document-get +test-server+ +test-db2+ "conflict6")]
+
+	(is (zero? (count conflicts)))
+	(is (= 1 (:foo merged-doc)))
+	(is (= 1 (:bar merged-doc)))))))
+
+(deftest multiple-conflict-resolve-test
+  (let [doc1 (document-create* +test-db+ "conflict7" {:foo 1})
+	doc2 (document-create* +test-db2+ "conflict7" {:bar 1})
+	doc3 (couchdb/document-update +test-server+ +test-db3+ "conflict7" {:baz 1})]
+
+    (database-replicate* +test-db+ +test-db3+)
+    (database-replicate* +test-db2+ +test-db3+)
+
+    (let [conflicts (document-get-conflicts* +test-db3+ "conflict7")]
+      
+      (is (= 2 (count conflicts)))
+      (is (= (:_rev doc3) (first conflicts)))
+      (is (= (:_rev doc2) (second conflicts)))
+
+      (couchdb/document-resolve-conflict +test-server+ +test-db3+ "conflict7"
+					 (first conflicts) merge)
+      (let [merged-doc (couchdb/document-get +test-server+ +test-db3+ "conflict7")
+	    conflicts-after-merge (document-get-conflicts* +test-db3+ "conflict7")]
+
+	(is (= 1 (count conflicts-after-merge)))
+	(is (= (second conflicts)
+	       (first conflicts-after-merge)))
+	(is (= 1 (:foo merged-doc)))
+	(is (= 1 (:baz merged-doc)))
+	(is (nil? (:bar merged-doc)))))))
+
 ;;; test-ns-hook is used to run tests in the specified order
 (defn test-ns-hook []
   (databases)
   (documents)
   (attachments)
+  (views)
   (documents-passing-map)
   (attachments-passing-map)
+  (test-db2-fixture replication-test)
+  (test-db2-fixture single-conflict-test)
+  (test-db2-db3-fixture multiple-conflict-test)
+  (test-db2-fixture single-conflict-resolve-test)
+  (test-db2-db3-fixture multiple-conflict-resolve-test)
   (cleanup)
   (error-checking)
   (cleanup))
-
+  

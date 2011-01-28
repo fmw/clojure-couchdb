@@ -2,9 +2,8 @@
 
 Simple clojure library to interface with [Apache CouchDB](http://couchdb.apache.org/).
 
-Depends on clojure-contrib and [clojure-http-client](http://github.com/technomancy/clojure-http-client/) (hopefully soon a part of contrib).
+Depends on clojure-contrib and [clj-http](http://github.com/clj-sys/clj-http).
 
----
 
 ##Database Functions:
 
@@ -64,6 +63,12 @@ Depends on clojure-contrib and [clojure-http-client](http://github.com/technoman
 ###attachment-get
     user=> (attachment-get "http://localhost:5984/" "some-db" "my-doc" "new-attachment")
     {:body-seq ("PAYLOAD"), :content-type "text/plain"}
+###attachment-get-bin
+    user=> (attachment-get-bin "http://localhost:5984/" "some-db" "my-doc" "new-attachment")
+    {:body-seq #<byte[] [B@379d2f6b>, :content-type "image/png"}
+###attachment-get-stream
+    user=> (attachment-get-stream "http://localhost:5984/" "some-db" "my-doc" "new-attachment")
+    {:body-stream #<HttpInputStream sun.net.www.protocol.http.HttpURLConnection$HttpInputStream@247ef45b>, :content-type "image/png"}
 ###attachment-delete
     user=> (attachment-delete "http://localhost:5984/" "some-db" "my-doc" "new-attachment")
     true
@@ -140,3 +145,15 @@ Consider a show named forty-two in the design-document test:
     user=> ; The latest field is the id. It's left blank in this example
     user=> (show-get "http://localhost:5984/" "some-db" "test" "forty-two" "")
     user=> ("<div>42</div>")
+
+##Contributors
+
+In no particular order:
+
+* [robinbrandt](http://github.com/robinbrandt/)
+* [Wojciech Kaczmarek](http://github.com/kunley)
+* [Moritz Ulrich](http://github.com/the-kenny/)
+* [Ryan Senior](http://github.com/senior)
+* [Ronen](http://github.com/narkisr)
+
+If I forgot you here, please send me a message. I just can't track down all commiters of this project.
