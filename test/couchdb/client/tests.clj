@@ -105,49 +105,75 @@
 
 
 (deftest attachments
-  ;; list
-  (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
-  ;; create
-  (is (= (couchdb/attachment-create +test-server+ +test-db+
-                                    "foobar" "my-attachment #1"
-                                    "ATTACHMENT DATA" "text/plain")
-         "my-attachment #1"))
-  ;; get
-  (is (= (couchdb/attachment-get +test-server+ +test-db+
-					"foobar" "my-attachment #1")
-	 {:body "ATTACHMENT DATA"
-	  :content-type "text/plain; charset=UTF-8"}))
-          
-  ;; re-check the list
-  (let [atts (couchdb/attachment-list +test-server+ +test-db+ "foobar")
-        att1 (get atts "my-attachment #1")]
-    (is (= (count atts) 1))
-    (is (not (nil? att1)))
-    (is (= (select-keys att1 [:length :content_type :stub])
-           {:length 15
-            :content_type "text/plain; charset=UTF-8"
-            :stub true})))
-  ;; delete
-  (is (= (couchdb/attachment-delete +test-server+ +test-db+
-                                    "foobar" "my-attachment #1") true))
-  ;; re-check the list again
-  (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
+  (let [binary-attachment (byte-array [(byte 0x12)
+				       (byte 0x23)
+				       (byte 0x44)])]
+    ;; list
+    (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
+    ;; create textual 
+    (is (= (couchdb/attachment-create +test-server+ +test-db+
+				      "foobar" "my-attachment #1"
+				      "ATTACHMENT DATA" "text/plain")
+	   "my-attachment #1"))
+    ;; create binary
+    (is (= (couchdb/attachment-create +test-server+ +test-db+
+				      "foobar" "attachment-2"
+				      binary-attachment "application/binary"))
+	"attachment-2")
+				    
+    ;; get textual
+    (is (= (couchdb/attachment-get +test-server+ +test-db+
+				   "foobar" "my-attachment #1")
+	   {:body "ATTACHMENT DATA"
+	    :content-type "text/plain; charset=utf-8"}))
+
+    ;; get binary attachment and ensure it is what we uploaded
+    (is (let [attachment (:body (couchdb/attachment-get +test-server+ +test-db+
+							"foobar" "attachment-2"))
+	      max_index (dec (count attachment))]
+	  (loop [index 0]
+	    (if (> index max_index)
+	      true
+	      (let [attachment_byte (nth attachment index)
+		    data_byte (nth binary-attachment index)]
+		(if (not (= attachment_byte data_byte))
+		  'false
+		  (recur (inc index))))))))	  
+	  
+      
+    ;; re-check the list
+    (let [atts (couchdb/attachment-list +test-server+ +test-db+ "foobar")
+	  att1 (get atts "my-attachment #1")]
+      (is (= (count atts) 2))
+      (is (not (nil? att1)))
+      (is (= (select-keys att1 [:length :content_type :stub])
+	     {:length 15
+	      :content_type "text/plain; charset=UTF-8"
+	      :stub true})))
+    ;; delete textual
+    (is (= (couchdb/attachment-delete +test-server+ +test-db+
+				      "foobar" "my-attachment #1") true))
+    ;; delete binary
+    (is (= (couchdb/attachment-delete +test-server+ +test-db+
+				      "foobar" "attachment-2") true))
+    ;; re-check the list again
+    (is (= (couchdb/attachment-list +test-server+ +test-db+ "foobar") {}))
   
-  ;; create with InputStream
-  (if-not (.exists (file *file*))
-    (println "File " *file* "not found. Skipping InputStream-Test")
-    (do
-      (let [istream (FileInputStream. *file*)]
-        (is (= (couchdb/attachment-create +test-server+ +test-db+
-                                          "foobar" "my-attachment #2"
-                                          istream "text/clojure")
-               "my-attachment #2")))
-      ;; get back the attachment we just created
-      (let [istream (FileInputStream. *file*)]
-        (is (= (couchdb/attachment-get +test-server+ +test-db+
-                                       "foobar" "my-attachment #2")
-               {:body (line-seq (reader istream))
-                :content-type "text/clojure"}))))))
+    ;; create with InputStream
+    (if-not (.exists (file *file*))
+      (println "File " *file* "not found. Skipping InputStream-Test")
+      (do
+	(let [istream (FileInputStream. *file*)]
+	  (is (= (couchdb/attachment-create +test-server+ +test-db+
+					    "foobar" "my-attachment #2"
+					    istream "text/clojure")
+		 "my-attachment #2")))
+	;; get back the attachment we just created
+	(let [istream (FileInputStream. *file*)]
+	  (is (= (couchdb/attachment-get +test-server+ +test-db+
+					 "foobar" "my-attachment #2")
+		 {:body (line-seq (reader istream))
+		  :content-type "text/clojure"})))))))
 
 (deftest views
   (let [design-doc "viewdocs"]
@@ -173,7 +199,6 @@
 	      (= 1))))))
 
   
-
 
 (deftest documents-passing-map
   ;; test that all the document-related functions work the same whether they
@@ -238,10 +263,10 @@
     ;; creating
     (let [regdoc-return (couchdb/attachment-create +test-server+ +test-db+
                                                    "regdoc" "att1"
-                                                   "payload" "content/type")
+                                                   "payload" "text/plain")
           mapdoc-return (couchdb/attachment-create +test-server+ +test-db+
                                                    mapdoc "att1" "payload"
-                                                   "content/type")]
+                                                   "text/plain")]
       (is (= regdoc-return mapdoc-return)))
     ;; listing
     (let [regdoc-return (couchdb/attachment-list +test-server+ +test-db+
@@ -263,10 +288,10 @@
       ;; are both return values true?
       (is (= regdoc-return mapdoc-return true))
       ;; make sure fetching both attachments gives a DocumentNotFound error
-      (is (raised? couchdb/AttachmentNotFound
+      (is (raised? couchdb/DocumentNotFound
                    (couchdb/attachment-get +test-server+ +test-db+
                                            "regdoc" "att1")))
-      (is (raised? couchdb/AttachmentNotFound
+      (is (raised? couchdb/DocumentNotFound
                    (couchdb/attachment-get +test-server+ +test-db+
                                            mapdoc "att1"))))))
 
@@ -447,4 +472,3 @@
   (error-checking)
   (cleanup))
   
-

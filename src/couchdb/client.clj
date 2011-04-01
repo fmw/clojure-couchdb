@@ -208,6 +208,7 @@ Example:
   [server database]
   (when-let [database (validate-dbname database)]
     (couch-request {:url (str (normalize-url server) database "/_compact"),
+		    :content-type :json
 		    :method :post})
     true))
 
@@ -417,6 +418,17 @@ http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API"
 			 :content-type :json,
 			 :body (json-str view-map)})))
 
+(defn view-create
+  "Create a map/reduce view.  The new view is a clojure-map with keys of :map and
+  (optionally) :reduce.  Values are the string representations of the functions
+  in the language of the design-doc (usually javascript)."
+  [server db design-name view-name view-map]
+  (let [design-key (str "_design/" design-name)]
+    (when-let [design-doc (document-get server db design-key)]
+      (document-update server db design-key
+                       (assoc design-doc :views (assoc (:views design-doc) (keyword view-name) view-map))))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;        Attachments          ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -442,17 +454,20 @@ http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API"
     id))
 
 (defn attachment-get
-  "returns the attachment as a seq of strings in :body"
+  "Returns the attachment in :body
+   If the data is text/plain, :body is a seq of string, otherwise it is a byte array"
   [server database document id]
   (when-let [database (validate-dbname database)]
     (let [document (do-get-doc database document)
           response (couch-request {:url (str (normalize-url server) database "/"
 					     (url-encode (as-str document)) "/"
 					     (url-encode (as-str id)))
-				   :as :byte-array})]
-					     
-      {:body (:body response)
-       :content-type (get (:headers response) "content-type")})))
+				   :as :byte-array})
+	  content-type (.toLowerCase (get (:headers response) "content-type"))]
+      {:body (if (.contains content-type "text/plain")
+	       (String. (:body response))
+	       (:body response))
+       :content-type content-type})))
 
 
 (defn attachment-delete
@@ -478,6 +493,3 @@ http://wiki.apache.org/couchdb/HTTP_Bulk_Document_API"
    (couch-request {:url (str (normalize-url server) database "/_design/"
 			     design-doc "/_show/" show-name "/"
 			     id "?" (url-encode (vals2json show-options)))})))
-
-
-

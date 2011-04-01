@@ -8,7 +8,7 @@ Depends on clojure-contrib and [clj-http](http://github.com/clj-sys/clj-http).
 ##Database Functions:
 
 ###database-list
-    user=> (database-list "http://localhost:5984/")
+    user=> (database-list "http://localhost:5984")
     ["foo" "bar" "some-db" "another-database"]
 ###database-info
     user=> (database-info "http://localhost:5984/" "foo")
@@ -146,4 +146,14 @@ Consider a show named forty-two in the design-document test:
     user=> (show-get "http://localhost:5984/" "some-db" "test" "forty-two" "")
     user=> ("<div>42</div>")
 
+##Contributors
 
+In no particular order:
+
+* [robinbrandt](http://github.com/robinbrandt/)
+* [Wojciech Kaczmarek](http://github.com/kunley)
+* [Moritz Ulrich](http://github.com/the-kenny/)
+* [Ryan Senior](http://github.com/senior)
+* [Ronen](http://github.com/narkisr)
+
+If I forgot you here, please send me a message. I just can't track down all commiters of this project.
